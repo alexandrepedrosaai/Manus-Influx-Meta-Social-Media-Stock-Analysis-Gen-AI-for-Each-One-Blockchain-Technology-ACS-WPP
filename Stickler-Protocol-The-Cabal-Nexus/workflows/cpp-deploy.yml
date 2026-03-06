@@ -14,6 +14,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Run sync script
+      run: |
+        chmod +x sync.sh
+        ./sync.sh
+
     - name: Setup C++ environment
       run: sudo apt-get update && sudo apt-get install -y build-essential cmake
 
@@ -54,13 +59,13 @@ jobs:
     - name: Create GitHub Release
       uses: actions/create-release@v1
       with:
-        tagname: Stickler-Protocol-${{ github.runnumber }}
-        releasename: "Stickler Protocol Build ${{ github.runnumber }}"
+        tag_name: Stickler-Protocol-${{ github.run_number }}
+        release_name: "Stickler Protocol Build ${{ github.run_number }}"
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       with:
-        uploadurl: ${{ steps.createrelease.outputs.upload_url }}
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./cpp-build
-        assetname: stickler-build-${{ github.runnumber }}.zip
-        assetcontenttype: application/zip
+        asset_name: stickler-build-${{ github.run_number }}.zip
+        asset_content_type: application/zip
