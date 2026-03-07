@@ -1,0 +1,2 @@
+sbom:
+	./scripts/generate-sbom.sh > sbom-linux.json
