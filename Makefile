@@ -5,7 +5,7 @@ ifeq ($(OS),Windows_NT)
 SHELL := pwsh.exe
 SHELLFLAGS := -NoLogo -Command
 RM := Remove-Item -ErrorAction SilentlyContinue -Recurse -Force
-MKDIR_P := New-Item -ItemType Directory -Force -Path
+MKDIR_P := mkdir -Force
 else
 RM := rm -rf
 MKDIR_P := mkdir -p
