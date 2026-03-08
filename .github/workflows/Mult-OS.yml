@@ -8,10 +8,10 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - uses: actions/checkout@v4
       - run: GOOS=linux GOARCH=amd64 make
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
@@ -23,16 +23,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Enable long paths
-        run: git config --system core.longpaths true
+        run: git config --global core.longpaths true
         shell: pwsh
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - uses: actions/checkout@v4
+      - name: Install make
+        run: choco install make --no-progress -y
+        shell: pwsh
       - name: Build
         run: |
-          New-Item -ItemType Directory -Force -Path build/windows/bin | Out-Null
-          go build -o build/windows/bin/app.exe main.go
+          $env:GOOS="windows"
+          $env:GOARCH="amd64"
+          make build
         shell: pwsh
       - name: Upload Windows binary
         uses: actions/upload-artifact@v4
@@ -43,11 +47,11 @@ jobs:
   build-macos:
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - uses: actions/checkout@v4
-      - run: GOOS=darwin GOARCH=arm64 make
+      - run: GOOS=darwin GOARCH=amd64 make
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
         with:
