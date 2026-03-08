@@ -6,7 +6,7 @@ This repository embodies Pedrosa’s Emergence: contextual intelligence, social 
 # Stickler Protocol – The Cabal Nexus
 
 [![Release 2026](https://img.shields.io/badge/release-2026-blue.svg)](https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/releases/tag/Stickler-Protocol-The-Cabal-Nexus)
-
+[![Share data between jobs](https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/actions/workflows/share-data.yml/badge.svg)](https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/actions/workflows/share-data.yml)
 ---
 
 📜 Manifest
