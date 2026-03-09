@@ -4,90 +4,188 @@
 set -euo pipefail
 
 SITE_DIR="${1:-./_site}"
-TEMPLATE="./site/index.html"
-RUN_NUMBER="${GITHUB_RUN_NUMBER:-0}"
-COMMIT_SHA="${GITHUB_SHA:0:7}"
-BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M UTC')"
-
 mkdir -p "$SITE_DIR"
 
-# --- Determine build statuses from job outcome env vars ---
-resolve_status() {
-  local outcome="$1"
-  case "$outcome" in
-    success) echo "success|Passed" ;;
-    failure) echo "fail|Failed" ;;
-    *)       echo "pending|Running" ;;
-  esac
+python3 << 'PYEOF'
+import os, subprocess, html, datetime
+
+site_dir = os.environ.get("1", os.sys.argv[1] if len(os.sys.argv) > 1 else "./_site")
+template_path = "./site/index.html"
+run_number = os.environ.get("GITHUB_RUN_NUMBER", "0")
+commit_sha_full = os.environ.get("GITHUB_SHA", "0000000")
+commit_sha = commit_sha_full[:7]
+build_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+# Build statuses
+def resolve(outcome):
+    if outcome == "success":
+        return "success", "Passed"
+    elif outcome == "failure":
+        return "fail", "Failed"
+    else:
+        return "pending", "Running"
+
+latex_s, latex_t = resolve(os.environ.get("LATEX_OUTCOME", "success"))
+python_s, python_t = resolve(os.environ.get("PYTHON_OUTCOME", "success"))
+solidity_s, solidity_t = resolve(os.environ.get("SOLIDITY_OUTCOME", "success"))
+cpp_s, cpp_t = resolve(os.environ.get("CPP_OUTCOME", "success"))
+
+# Generate changelog from git log
+changelog_html = ""
+try:
+    result = subprocess.run(
+        ["git", "log", "--pretty=format:%h|%ad|%s", "--date=short", "-n", "15"],
+        capture_output=True, text=True, timeout=10
+    )
+    for line in result.stdout.strip().split("\n"):
+        if not line.strip():
+            continue
+        parts = line.split("|", 2)
+        if len(parts) < 3:
+            continue
+        h, d, s = parts
+        s = html.escape(s)
+        changelog_html += f'''<div class="changelog-entry">
+<div class="changelog-header">
+<span class="changelog-version">{html.escape(h)}</span>
+<span class="changelog-date">{html.escape(d)}</span>
+</div>
+<div class="changelog-body">{s}</div>
+</div>
+'''
+except Exception:
+    pass
+
+if not changelog_html:
+    changelog_html = '<div class="changelog-entry"><div class="changelog-body">No changelog available.</div></div>'
+
+# Read template
+with open(template_path, "r") as f:
+    content = f.read()
+
+# Replace placeholders
+replacements = {
+    "{{RUN_NUMBER}}": run_number,
+    "{{COMMIT_SHA}}": commit_sha,
+    "{{BUILD_TIME}}": build_time,
+    "{{LATEX_STATUS}}": latex_s,
+    "{{LATEX_STATUS_TEXT}}": latex_t,
+    "{{LATEX_DURATION}}": os.environ.get("LATEX_DURATION", "~2m"),
+    "{{PYTHON_STATUS}}": python_s,
+    "{{PYTHON_STATUS_TEXT}}": python_t,
+    "{{PYTHON_DURATION}}": os.environ.get("PYTHON_DURATION", "~2m"),
+    "{{SOLIDITY_STATUS}}": solidity_s,
+    "{{SOLIDITY_STATUS_TEXT}}": solidity_t,
+    "{{SOLIDITY_DURATION}}": os.environ.get("SOLIDITY_DURATION", "~30s"),
+    "{{CPP_STATUS}}": cpp_s,
+    "{{CPP_STATUS_TEXT}}": cpp_t,
+    "{{CPP_DURATION}}": os.environ.get("CPP_DURATION", "~2m"),
+    "{{CHANGELOG_ENTRIES}}": changelog_html,
 }
 
-IFS='|' read -r LATEX_STATUS LATEX_STATUS_TEXT <<< "$(resolve_status "${LATEX_OUTCOME:-success}")"
-IFS='|' read -r PYTHON_STATUS PYTHON_STATUS_TEXT <<< "$(resolve_status "${PYTHON_OUTCOME:-success}")"
-IFS='|' read -r SOLIDITY_STATUS SOLIDITY_STATUS_TEXT <<< "$(resolve_status "${SOLIDITY_OUTCOME:-success}")"
-IFS='|' read -r CPP_STATUS CPP_STATUS_TEXT <<< "$(resolve_status "${CPP_OUTCOME:-success}")"
+for placeholder, value in replacements.items():
+    content = content.replace(placeholder, value)
 
-LATEX_DURATION="${LATEX_DURATION:-~2m}"
-PYTHON_DURATION="${PYTHON_DURATION:-~2m}"
-SOLIDITY_DURATION="${SOLIDITY_DURATION:-~30s}"
-CPP_DURATION="${CPP_DURATION:-~5m}"
-
-# --- Generate changelog from recent git commits ---
-CHANGELOG_ENTRIES=""
-while IFS='|' read -r hash date subject; do
-  [ -z "$hash" ] && continue
-  CHANGELOG_ENTRIES+="<div class=\"changelog-entry\">"
-  CHANGELOG_ENTRIES+="<div class=\"changelog-header\">"
-  CHANGELOG_ENTRIES+="<span class=\"changelog-version\">${hash}</span>"
-  CHANGELOG_ENTRIES+="<span class=\"changelog-date\">${date}</span>"
-  CHANGELOG_ENTRIES+="</div>"
-  CHANGELOG_ENTRIES+="<div class=\"changelog-body\">${subject}</div>"
-  CHANGELOG_ENTRIES+="</div>"
-done < <(git log --pretty=format:'%h|%ad|%s' --date=short -n 15 2>/dev/null || echo "")
-
-if [ -z "$CHANGELOG_ENTRIES" ]; then
-  CHANGELOG_ENTRIES='<div class="changelog-entry"><div class="changelog-body">No changelog available.</div></div>'
-fi
-
-# --- Populate template ---
-sed \
-  -e "s|{{RUN_NUMBER}}|${RUN_NUMBER}|g" \
-  -e "s|{{COMMIT_SHA}}|${COMMIT_SHA}|g" \
-  -e "s|{{BUILD_TIME}}|${BUILD_TIME}|g" \
-  -e "s|{{LATEX_STATUS}}|${LATEX_STATUS}|g" \
-  -e "s|{{LATEX_STATUS_TEXT}}|${LATEX_STATUS_TEXT}|g" \
-  -e "s|{{LATEX_DURATION}}|${LATEX_DURATION}|g" \
-  -e "s|{{PYTHON_STATUS}}|${PYTHON_STATUS}|g" \
-  -e "s|{{PYTHON_STATUS_TEXT}}|${PYTHON_STATUS_TEXT}|g" \
-  -e "s|{{PYTHON_DURATION}}|${PYTHON_DURATION}|g" \
-  -e "s|{{SOLIDITY_STATUS}}|${SOLIDITY_STATUS}|g" \
-  -e "s|{{SOLIDITY_STATUS_TEXT}}|${SOLIDITY_STATUS_TEXT}|g" \
-  -e "s|{{SOLIDITY_DURATION}}|${SOLIDITY_DURATION}|g" \
-  -e "s|{{CPP_STATUS}}|${CPP_STATUS}|g" \
-  -e "s|{{CPP_STATUS_TEXT}}|${CPP_STATUS_TEXT}|g" \
-  -e "s|{{CPP_DURATION}}|${CPP_DURATION}|g" \
-  "$TEMPLATE" > "${SITE_DIR}/index.html.tmp"
-
-# Changelog needs special handling (multiline)
-python3 -c "
-import sys
-with open('${SITE_DIR}/index.html.tmp', 'r') as f:
-    content = f.read()
-changelog = '''${CHANGELOG_ENTRIES}'''
-content = content.replace('{{CHANGELOG_ENTRIES}}', changelog)
-with open('${SITE_DIR}/index.html', 'w') as f:
+# Write output
+output_path = os.path.join(site_dir, "index.html")
+with open(output_path, "w") as f:
     f.write(content)
-"
-rm -f "${SITE_DIR}/index.html.tmp"
 
-# --- Copy manifesto PDF if available ---
+print(f"Site generated at {site_dir}/")
+PYEOF
+
+# Pass site_dir to Python
+python3 -c "
+import os, subprocess, html, datetime
+
+site_dir = '$SITE_DIR'
+template_path = './site/index.html'
+run_number = os.environ.get('GITHUB_RUN_NUMBER', '0')
+commit_sha_full = os.environ.get('GITHUB_SHA', '0000000')
+commit_sha = commit_sha_full[:7]
+build_time = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+
+def resolve(outcome):
+    if outcome == 'success':
+        return 'success', 'Passed'
+    elif outcome == 'failure':
+        return 'fail', 'Failed'
+    else:
+        return 'pending', 'Running'
+
+latex_s, latex_t = resolve(os.environ.get('LATEX_OUTCOME', 'success'))
+python_s, python_t = resolve(os.environ.get('PYTHON_OUTCOME', 'success'))
+solidity_s, solidity_t = resolve(os.environ.get('SOLIDITY_OUTCOME', 'success'))
+cpp_s, cpp_t = resolve(os.environ.get('CPP_OUTCOME', 'success'))
+
+changelog_html = ''
+try:
+    result = subprocess.run(
+        ['git', 'log', '--pretty=format:%h|%ad|%s', '--date=short', '-n', '15'],
+        capture_output=True, text=True, timeout=10
+    )
+    for line in result.stdout.strip().split('\n'):
+        if not line.strip():
+            continue
+        parts = line.split('|', 2)
+        if len(parts) < 3:
+            continue
+        h, d, s = parts
+        s = html.escape(s)
+        changelog_html += '<div class=\"changelog-entry\">'
+        changelog_html += '<div class=\"changelog-header\">'
+        changelog_html += f'<span class=\"changelog-version\">{html.escape(h)}</span>'
+        changelog_html += f'<span class=\"changelog-date\">{html.escape(d)}</span>'
+        changelog_html += '</div>'
+        changelog_html += f'<div class=\"changelog-body\">{s}</div>'
+        changelog_html += '</div>'
+except Exception:
+    pass
+
+if not changelog_html:
+    changelog_html = '<div class=\"changelog-entry\"><div class=\"changelog-body\">No changelog available.</div></div>'
+
+with open(template_path, 'r') as f:
+    content = f.read()
+
+replacements = {
+    '{{RUN_NUMBER}}': run_number,
+    '{{COMMIT_SHA}}': commit_sha,
+    '{{BUILD_TIME}}': build_time,
+    '{{LATEX_STATUS}}': latex_s,
+    '{{LATEX_STATUS_TEXT}}': latex_t,
+    '{{LATEX_DURATION}}': os.environ.get('LATEX_DURATION', '~2m'),
+    '{{PYTHON_STATUS}}': python_s,
+    '{{PYTHON_STATUS_TEXT}}': python_t,
+    '{{PYTHON_DURATION}}': os.environ.get('PYTHON_DURATION', '~2m'),
+    '{{SOLIDITY_STATUS}}': solidity_s,
+    '{{SOLIDITY_STATUS_TEXT}}': solidity_t,
+    '{{SOLIDITY_DURATION}}': os.environ.get('SOLIDITY_DURATION', '~30s'),
+    '{{CPP_STATUS}}': cpp_s,
+    '{{CPP_STATUS_TEXT}}': cpp_t,
+    '{{CPP_DURATION}}': os.environ.get('CPP_DURATION', '~2m'),
+    '{{CHANGELOG_ENTRIES}}': changelog_html,
+}
+
+for placeholder, value in replacements.items():
+    content = content.replace(placeholder, value)
+
+output_path = os.path.join(site_dir, 'index.html')
+with open(output_path, 'w') as f:
+    f.write(content)
+
+print(f'Site generated at {site_dir}/')
+"
+
+# Copy manifesto PDF if available
 if [ -f "./manifesto.pdf" ]; then
   cp ./manifesto.pdf "${SITE_DIR}/manifesto.pdf"
 fi
 
-# --- Copy Solidity ABI if available ---
+# Copy Solidity ABI if available
 if [ -d "./solidity-artifacts" ]; then
   cp -r ./solidity-artifacts "${SITE_DIR}/abi"
 fi
 
-echo "Site generated at ${SITE_DIR}/"
+echo "=== Final site contents ==="
 ls -la "${SITE_DIR}/"
