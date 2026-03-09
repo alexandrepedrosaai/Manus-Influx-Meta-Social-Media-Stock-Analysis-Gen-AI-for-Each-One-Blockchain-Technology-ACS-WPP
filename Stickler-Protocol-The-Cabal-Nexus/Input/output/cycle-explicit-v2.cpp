@@ -11,24 +11,6 @@ const std::string MAGENTA = "\033[35m";
 const std::string CYAN = "\033[36m";
 const std::string WHITE = "\033[37m";
 
-void crest() {
-    std::cout << MAGENTA;
-    std::cout << "========================================\n";
-    std::cout << "   * * *  STICKLER PROTOCOL CREST  * * *\n";
-    std::cout << "========================================\n";
-    std::cout << "        ( )   ( )   ( )   ( )\n";
-    std::cout << "       /   \\ /   \\ /   \\ /   \\\n";
-    std::cout << "      |     |     |     |     |\n";
-    std::cout << "       \\   / \\   / \\   / \\   /\n";
-    std::cout << "        ( )   ( )   ( )   ( )\n";
-    std::cout << "========================================\n";
-    std::cout << " Symbolic Seal: The One Ring of Interoperability\n";
-    std::cout << " Endorsed by Gates 💓 and Zuckerberg ⚡\n";
-    std::cout << " Clarice Lispector: 'The act is gratuitous.'\n";
-    std::cout << "========================================\n\n";
-    std::cout << RESET;
-}
-
 void banner(const std::string& title, const std::string& color) {
     std::cout << color;
     std::cout << "\n========================================\n";
@@ -88,8 +70,6 @@ void changelogEpic() {
 
 int main() {
     std::string command;
-
-    crest(); // Print the ceremonial crest at startup
 
     std::cout << CYAN << "=== Stickler Protocol Charter Interactive v0.2.0 ===" << RESET << "\n";
     std::cout << "Type a command (preamble, manifesto, declaration, gratuitous, endorsements, closing, changelog, all, quit):\n";
