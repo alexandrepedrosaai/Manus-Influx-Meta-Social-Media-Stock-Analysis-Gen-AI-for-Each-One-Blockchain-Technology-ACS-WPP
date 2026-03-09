@@ -7,6 +7,15 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-latex:
     runs-on: ubuntu-latest
@@ -57,9 +66,11 @@ jobs:
       - name: Compile Contracts
         run: npx hardhat compile
         working-directory: blockchain-solidity
-      - name: Run Solidity tests
-        run: echo "No Solidity tests configured yet."
-        working-directory: blockchain-solidity
+      - name: Upload Solidity artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solidity-artifacts
+          path: blockchain-solidity/artifacts/
 
   build-cpp:
     runs-on: ubuntu-latest
@@ -91,45 +102,104 @@ jobs:
           path: Stickler-Protocol-The-Cabal-Nexus/build/
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: [build-latex, build-python, build-solidity, build-cpp]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
-          body: "Automated release from CI/CD pipeline."
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
       - name: Download LaTeX artifact
         uses: actions/download-artifact@v4
         with:
           name: manuscript-pdf
-      - name: Upload LaTeX Release Asset
-        uses: actions/upload-release-asset@v1
+          path: ./manuscript-pdf
+
+      - name: Download Solidity artifacts
+        uses: actions/download-artifact@v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./manifesto.pdf
-          asset_name: manuscript-${{ github.run_number }}.pdf
-          asset_content_type: application/pdf
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: solidity-artifacts
+          path: ./solidity-artifacts
+
       - name: Download C++ artifact
         uses: actions/download-artifact@v4
         with:
           name: cpp-build
-      - name: Upload C++ Release Asset
-        uses: actions/upload-release-asset@v1
+          path: ./cpp-build
+
+      # --- Dynamic Site Generation ---
+      - name: Generate dynamic site
+        env:
+          LATEX_OUTCOME: ${{ needs.build-latex.result }}
+          PYTHON_OUTCOME: ${{ needs.build-python.result }}
+          SOLIDITY_OUTCOME: ${{ needs.build-solidity.result }}
+          CPP_OUTCOME: ${{ needs.build-cpp.result }}
+        run: |
+          # Copy manifesto PDF for the site
+          cp ./manuscript-pdf/manifesto.pdf ./manifesto.pdf 2>/dev/null || true
+
+          # Generate the site
+          bash ./scripts/generate-site.sh ./_site
+
+          # Copy artifacts into the site for direct download
+          cp ./manifesto.pdf ./_site/manifesto.pdf 2>/dev/null || true
+          mkdir -p ./_site/artifacts
+          cp -r ./solidity-artifacts ./_site/artifacts/solidity 2>/dev/null || true
+
+          echo "=== Site contents ==="
+          find ./_site -type f | head -30
+
+      # --- Deploy to GitHub Pages ---
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./cpp-build
-          asset_name: cpp-build-${{ github.run_number }}.zip
-          asset_content_type: application/zip
+          path: ./_site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      # --- Create GitHub Release ---
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          body: |
+            ## Automated Release from Consolidated CI
+
+            **Build:** #${{ github.run_number }}
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+
+            ### Build Results
+            | Job | Status |
+            |-----|--------|
+            | build-latex | ${{ needs.build-latex.result }} |
+            | build-python | ${{ needs.build-python.result }} |
+            | build-solidity | ${{ needs.build-solidity.result }} |
+            | build-cpp | ${{ needs.build-cpp.result }} |
+
+            ### Artifacts
+            - **manuscript.pdf** — Stickler Protocol Charter (LaTeX)
+            - **cpp-build.tar.gz** — 14 compiled C++ executables
+            - **solidity-artifacts.tar.gz** — Compiled Solidity contracts & ABI
+
+            ---
+            *Stickler Protocol — Eternal, Cabal, Inscribed.*
+          draft: false
+          prerelease: false
+          files: |
+            ./manuscript-pdf/manifesto.pdf
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

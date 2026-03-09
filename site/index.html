@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickler Protocol — The Cabal Nexus</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --purple: #bc8cff;
+      --gradient-start: #58a6ff;
+      --gradient-end: #bc8cff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 4rem 2rem 3rem;
+      background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(188,140,255,0.08));
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    .hero .subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 700px;
+      margin: 0 auto 1.5rem;
+    }
+    .hero .meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .hero .meta span { margin: 0 0.75rem; }
+
+    /* Container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Section */
+    .section { margin-bottom: 2.5rem; }
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section-title .icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+    }
+
+    /* Build Status Grid */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .status-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: border-color 0.2s;
+    }
+    .status-card:hover { border-color: var(--accent); }
+    .status-card .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .status-card .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-success { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge-pending { background: rgba(210,153,34,0.15); color: var(--yellow); }
+    .badge-fail { background: rgba(248,81,73,0.15); color: var(--red); }
+    .status-card .card-detail {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .status-card .card-tech {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .tech-tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(88,166,255,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(88,166,255,0.2);
+    }
+
+    /* Artifacts */
+    .artifact-list { list-style: none; }
+    .artifact-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .artifact-info { display: flex; align-items: center; gap: 0.75rem; }
+    .artifact-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .artifact-icon.pdf { background: rgba(248,81,73,0.15); }
+    .artifact-icon.bin { background: rgba(63,185,80,0.15); }
+    .artifact-icon.sol { background: rgba(188,140,255,0.15); }
+    .artifact-name { font-weight: 600; font-size: 0.9rem; }
+    .artifact-size { font-size: 0.8rem; color: var(--text-muted); }
+    .btn-download {
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-download:hover {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Changelog */
+    .changelog-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .changelog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .changelog-version {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+    .changelog-date {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .changelog-body {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .changelog-body ul {
+      padding-left: 1.25rem;
+      margin-top: 0.5rem;
+    }
+    .changelog-body li { margin-bottom: 0.25rem; }
+
+    /* Architecture */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .arch-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .arch-card .arch-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .arch-card .arch-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+    .arch-card .arch-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    .footer a { color: var(--accent); }
+
+    /* Dynamic content placeholder */
+    #build-time, #commit-sha, #run-number { font-family: 'SFMono-Regular', Consolas, monospace; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.6rem; }
+      .hero .subtitle { font-size: 0.95rem; }
+      .artifact-item { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <header class="hero">
+    <h1>Stickler Protocol</h1>
+    <p class="subtitle">
+      The Cabal Nexus — A monumental framework uniting LaTeX, Python AI, Solidity Smart Contracts, and C++ Protocol in a living treaty of interoperability.
+    </p>
+    <div class="meta">
+      <span>Build <strong id="run-number">{{RUN_NUMBER}}</strong></span>
+      <span>Commit <code id="commit-sha">{{COMMIT_SHA}}</code></span>
+      <span>Deployed <time id="build-time">{{BUILD_TIME}}</time></span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Build Status -->
+    <div class="section">
+      <h2 class="section-title">Build Status</h2>
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="card-header">
+            <span class="card-title">build-latex</span>
+            <span class="badge badge-{{LATEX_STATUS}}">{{LATEX_STATUS_TEXT}}</span>
+          </div>
+          <div class="card-detail">Manifesto PDF — {{LATEX_DURATION}}</div>
+          <div class="card-tech">
+            <span class="tech-tag">LaTeX</span>
+            <span class="tech-tag">pdflatex</span>
+            <span class="tech-tag">texlive</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="card-header">
+            <span class="card-title">build-python</span>
+            <span class="badge badge-{{PYTHON_STATUS}}">{{PYTHON_STATUS_TEXT}}</span>
+          </div>
+          <div class="card-detail">AI Engine — {{PYTHON_DURATION}}</div>
+          <div class="card-tech">
+            <span class="tech-tag">Python 3.11</span>
+            <span class="tech-tag">TensorFlow</span>
+            <span class="tech-tag">PyTorch</span>
+            <span class="tech-tag">Web3</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="card-header">
+            <span class="card-title">build-solidity</span>
+            <span class="badge badge-{{SOLIDITY_STATUS}}">{{SOLIDITY_STATUS_TEXT}}</span>
+          </div>
+          <div class="card-detail">Smart Contracts — {{SOLIDITY_DURATION}}</div>
+          <div class="card-tech">
+            <span class="tech-tag">Solidity 0.8.20</span>
+            <span class="tech-tag">Hardhat</span>
+            <span class="tech-tag">Ethereum</span>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="card-header">
+            <span class="card-title">build-cpp</span>
+            <span class="badge badge-{{CPP_STATUS}}">{{CPP_STATUS_TEXT}}</span>
+          </div>
+          <div class="card-detail">Protocol Core — {{CPP_DURATION}}</div>
+          <div class="card-tech">
+            <span class="tech-tag">C++17</span>
+            <span class="tech-tag">CMake</span>
+            <span class="tech-tag">14 executables</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Download Artifacts -->
+    <div class="section">
+      <h2 class="section-title">Artifacts</h2>
+      <ul class="artifact-list">
+        <li class="artifact-item">
+          <div class="artifact-info">
+            <div class="artifact-icon pdf">&#128220;</div>
+            <div>
+              <div class="artifact-name">Stickler Protocol Charter (PDF)</div>
+              <div class="artifact-size">manifesto.pdf — Compiled from LaTeX</div>
+            </div>
+          </div>
+          <a class="btn-download" href="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/releases/latest/download/manuscript-{{RUN_NUMBER}}.pdf">Download PDF</a>
+        </li>
+        <li class="artifact-item">
+          <div class="artifact-info">
+            <div class="artifact-icon bin">&#9881;</div>
+            <div>
+              <div class="artifact-name">C++ Protocol Executables</div>
+              <div class="artifact-size">cpp-build — 14 compiled binaries</div>
+            </div>
+          </div>
+          <a class="btn-download" href="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/releases/latest">View Release</a>
+        </li>
+        <li class="artifact-item">
+          <div class="artifact-info">
+            <div class="artifact-icon sol">&#128279;</div>
+            <div>
+              <div class="artifact-name">Smart Contract ABI</div>
+              <div class="artifact-size">MyContract.sol — Solidity 0.8.20</div>
+            </div>
+          </div>
+          <a class="btn-download" href="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP/tree/main/blockchain-solidity/contracts">View Contract</a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Architecture -->
+    <div class="section">
+      <h2 class="section-title">Architecture</h2>
+      <div class="arch-grid">
+        <div class="arch-card">
+          <div class="arch-icon">&#128196;</div>
+          <div class="arch-name">LaTeX</div>
+          <div class="arch-desc">Manifesto, whitepapers, and scientific documentation</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-icon">&#129302;</div>
+          <div class="arch-name">Python AI</div>
+          <div class="arch-desc">Stock analysis, Gen AI pipelines, data processing</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-icon">&#9939;</div>
+          <div class="arch-name">Solidity</div>
+          <div class="arch-desc">Blockchain governance, smart contracts, tokenization</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-icon">&#9881;</div>
+          <div class="arch-name">C++ Protocol</div>
+          <div class="arch-desc">Core Stickler Protocol — The Cabal Nexus engine</div>
+        </div>
+        <div class="arch-card">
+          <div class="arch-icon">&#128274;</div>
+          <div class="arch-name">ImmutableOS</div>
+          <div class="arch-desc">Go-based immutable operating system layer</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Changelog -->
+    <div class="section">
+      <h2 class="section-title">Changelog</h2>
+      <div id="changelog-container">
+        {{CHANGELOG_ENTRIES}}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>
+      <strong>Stickler Protocol — Eternal, Cabal, Inscribed.</strong><br>
+      <a href="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ASC-WPP">GitHub Repository</a>
+      &middot; Alexandre Pedrosa &middot; Executive Interoperability Architect
+    </p>
+  </footer>
+
+</body>
+</html>
