@@ -5,7 +5,9 @@ ifeq ($(OS),Windows_NT)
 SHELL := pwsh.exe
 SHELLFLAGS := -NoLogo -Command
 RM := Remove-Item -ErrorAction SilentlyContinue -Recurse -Force
-MKDIR_P := mkdir -Force
+# Use an explicit PowerShell invocation so directory creation works even when
+# GNU make falls back to a POSIX shell on Windows runners.
+MKDIR_P = pwsh -NoLogo -Command "param([string]$$p); New-Item -ItemType Directory -Force -Path $$p | Out-Null" --
 else
 RM := rm -rf
 MKDIR_P := mkdir -p
