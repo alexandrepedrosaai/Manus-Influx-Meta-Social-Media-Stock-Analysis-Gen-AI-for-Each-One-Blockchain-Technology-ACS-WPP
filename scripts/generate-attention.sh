@@ -1,12 +1,11 @@
 #!/bin/bash
-# Gera metadados de atenção para auditoria
-# Pode ser expandido com métricas de build, logs, etc.
-
+# Generate attention metadata for audit
+OS_NAME="${GOOS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
 echo '{
   "attention": {
-    "os": "Linux",
-    "build_id": "'${GITHUB_RUN_ID}'",
-    "notes": "Build executado com foco em segurança e consistência",
-    "generated_at": "'$(date -u)'"
+    "os": "'"${OS_NAME}"'",
+    "build_id": "'"${GITHUB_RUN_ID:-local}"'",
+    "notes": "Build executed with focus on security and consistency",
+    "generated_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
   }
 }'

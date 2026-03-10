@@ -3,16 +3,50 @@ name: ImmutableOS Build & Release
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/upload-artifact@v4
-      - run: make
-      - run: ./scripts/generate-sbom.sh > sbom-linux.json
-      - run: ./scripts/generate-attention.sh > attention-linux.json
-      - run: ./scripts/generate-immutable.sh > immutable-linux.json
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Linux binary
+        run: make build
+        env:
+          GOOS: linux
+          GOARCH: amd64
+
+      - name: Generate SBOM
+        run: bash ./scripts/generate-sbom.sh > sbom-linux.json
+        env:
+          GOOS: linux
+
+      - name: Generate Attention
+        run: bash ./scripts/generate-attention.sh > attention-linux.json
+        env:
+          GOOS: linux
+
+      - name: Generate Immutable manifest
+        run: bash ./scripts/generate-immutable.sh > immutable-linux.json
+        env:
+          GOOS: linux
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -26,142 +60,186 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: msbuild project.sln
-      - run: ./scripts/generate-sbom.sh > sbom-windows.json
-      - run: ./scripts/generate-attention.sh > attention-windows.json
-      - run: ./scripts/generate-immutable.sh > immutable-windows.json
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fix: "Filename too long" on Windows due to long repo name + file paths
+          path: src
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Windows binary
+        shell: bash
+        working-directory: src
+        run: |
+          mkdir -p build/windows/bin
+          GOOS=windows GOARCH=amd64 go build -o build/windows/bin/app.exe main.go
+
+      - name: Generate SBOM
+        shell: bash
+        working-directory: src
+        run: |
+          GOOS=windows bash ./scripts/generate-sbom.sh > sbom-windows.json
+
+      - name: Generate Attention
+        shell: bash
+        working-directory: src
+        run: |
+          GOOS=windows bash ./scripts/generate-attention.sh > attention-windows.json
+
+      - name: Generate Immutable manifest
+        shell: bash
+        working-directory: src
+        run: |
+          GOOS=windows bash ./scripts/generate-immutable.sh > immutable-windows.json
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
           path: |
-            build/windows/bin/*
-            sbom-windows.json
-            attention-windows.json
-            immutable-windows.json
+            src/build/windows/bin/*
+            src/sbom-windows.json
+            src/attention-windows.json
+            src/immutable-windows.json
 
   build-macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/upload-artifact@v4
-      - run: make
-      - run: ./scripts/generate-sbom.sh > sbom-macos.json
-      - run: ./scripts/generate-attention.sh > attention-macos.json
-      - run: ./scripts/generate-immutable.sh > immutable-macos.json
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build macOS binary
+        run: make build
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+
+      - name: Generate SBOM
+        run: bash ./scripts/generate-sbom.sh > sbom-darwin.json
+        env:
+          GOOS: darwin
+
+      - name: Generate Attention
+        run: bash ./scripts/generate-attention.sh > attention-darwin.json
+        env:
+          GOOS: darwin
+
+      - name: Generate Immutable manifest
+        run: bash ./scripts/generate-immutable.sh > immutable-darwin.json
+        env:
+          GOOS: darwin
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
           path: |
-            build/macos/bin/*
-            sbom-macos.json
-            attention-macos.json
-            immutable-macos.json
+            build/darwin/bin/*
+            sbom-darwin.json
+            attention-darwin.json
+            immutable-darwin.json
 
   release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: [build-linux, build-windows, build-macos]
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
+      - name: Package artifacts
+        run: |
+          cd artifacts
+          # Package Linux
+          tar czf ../immutableos-linux-${{ github.run_number }}.tar.gz -C linux-artifacts .
+          # Package Windows
+          tar czf ../immutableos-windows-${{ github.run_number }}.tar.gz -C windows-artifacts .
+          # Package macOS
+          tar czf ../immutableos-macos-${{ github.run_number }}.tar.gz -C macos-artifacts .
+
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: "ImmutableOS Build ${{ github.run_number }}"
+          tag_name: immutableos-v${{ github.run_number }}
+          name: "ImmutableOS Build ${{ github.run_number }}"
+          body: |
+            ## ImmutableOS Build ${{ github.run_number }}
 
-      # Upload Linux
-      - name: Upload Linux binary
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/linux-artifacts/build/linux/bin/*
-          asset_name: cpp-linux-${{ github.run_number }}.zip
-          asset_content_type: application/zip
-      - name: Upload Linux docs
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/linux-artifacts/sbom-linux.json
-          asset_name: sbom-linux-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload Linux attention
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/linux-artifacts/attention-linux.json
-          asset_name: attention-linux-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload Linux immutable
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/linux-artifacts/immutable-linux.json
-          asset_name: immutable-linux-${{ github.run_number }}.json
-          asset_content_type: application/json
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
 
-      # Upload Windows
-      - name: Upload Windows binary
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/windows-artifacts/build/windows/bin/*
-          asset_name: cpp-windows-${{ github.run_number }}.zip
-          asset_content_type: application/zip
-      - name: Upload Windows docs
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/windows-artifacts/sbom-windows.json
-          asset_name: sbom-windows-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload Windows attention
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/windows-artifacts/attention-windows.json
-          asset_name: attention-windows-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload Windows immutable
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/windows-artifacts/immutable-windows.json
-          asset_name: immutable-windows-${{ github.run_number }}.json
-          asset_content_type: application/json
+            ### Platform Binaries
+            | Platform | Binary | Status |
+            |----------|--------|--------|
+            | Linux x64 | `app` | ${{ needs.build-linux.result }} |
+            | Windows x64 | `app.exe` | ${{ needs.build-windows.result }} |
+            | macOS x64 | `app` | ${{ needs.build-macos.result }} |
 
-      # Upload macOS
-      - name: Upload macOS binary
-        uses: actions/upload-release-asset@v1
+            ### Included Manifests
+            - **SBOM** — Software Bill of Materials
+            - **Attention** — Audit metadata
+            - **Immutable** — SHA256 integrity manifest
+
+            ---
+            *ImmutableOS — Stickler Protocol*
+          draft: false
+          prerelease: false
+          files: |
+            immutableos-linux-${{ github.run_number }}.tar.gz
+            immutableos-windows-${{ github.run_number }}.tar.gz
+            immutableos-macos-${{ github.run_number }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows, build-macos, release]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/macos-artifacts/build/macos/bin/*
-          asset_name: cpp-macos-${{ github.run_number }}.zip
-          asset_content_type: application/zip
-      - name: Upload macOS docs
-        uses: actions/upload-release-asset@v1
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/macos-artifacts/sbom-macos.json
-          asset_name: sbom-macos-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload macOS attention
-        uses: actions/upload-release-asset@v1
+          path: ./artifacts
+
+      - name: Generate dynamic site
+        env:
+          LINUX_OUTCOME: ${{ needs.build-linux.result }}
+          WINDOWS_OUTCOME: ${{ needs.build-windows.result }}
+          MACOS_OUTCOME: ${{ needs.build-macos.result }}
+          RELEASE_OUTCOME: ${{ needs.release.result }}
+        run: |
+          python3 ./scripts/generate_immutableos_site.py ./_site
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/macos-artifacts/attention-macos.json
-          asset_name: attention-macos-${{ github.run_number }}.json
-          asset_content_type: application/json
-      - name: Upload macOS immutable
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/macos-artifacts/immutable-macos.json
-          asset_name: immutable-macos-${{ github.run_number }}.json
-          asset_content_type: application/json
+          path: ./_site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
