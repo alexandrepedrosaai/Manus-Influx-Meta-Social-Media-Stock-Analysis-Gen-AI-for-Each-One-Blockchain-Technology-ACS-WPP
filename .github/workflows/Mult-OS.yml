@@ -1,8 +1,12 @@
-name: ImmutableOS Build & Release
+name: Multi-OS Build & Release
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-linux:
@@ -23,7 +27,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Enable long paths
-        run: git config --global core.longpaths true
+        run: git config --system core.longpaths true
         shell: pwsh
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -33,11 +37,9 @@ jobs:
         run: choco install make --no-progress -y
         shell: pwsh
       - name: Build
+        shell: bash
         run: |
-          $env:GOOS="windows"
-          $env:GOARCH="amd64"
-          make build
-        shell: pwsh
+          GOOS=windows GOARCH=amd64 make build
       - name: Upload Windows binary
         uses: actions/upload-artifact@v4
         with:
@@ -68,66 +70,43 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Generate SBOM
-        run: ./scripts/generate-sbom.sh
+      - name: Generate manifests
+        run: |
+          bash ./scripts/generate-sbom.sh > sbom.json
+          bash ./scripts/generate-attention.sh > attention.json
+          bash ./scripts/generate-immutable.sh > immutable.json
 
-      - name: Generate attention.json
-        run: ./scripts/generate-attention.sh
-
-      - name: Generate immutable.json
-        run: ./scripts/generate-immutable.sh
+      - name: Package artifacts
+        run: |
+          cd artifacts
+          tar czf ../multi-os-linux-${{ github.run_number }}.tar.gz -C cpp-linux . 2>/dev/null || true
+          tar czf ../multi-os-windows-${{ github.run_number }}.tar.gz -C cpp-windows . 2>/dev/null || true
+          tar czf ../multi-os-macos-${{ github.run_number }}.tar.gz -C cpp-macos . 2>/dev/null || true
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: "ImmutableOS Build ${{ github.run_number }}"
+          tag_name: multi-os-v${{ github.run_number }}
+          name: "Multi-OS Build ${{ github.run_number }}"
+          body: |
+            ## Multi-OS Build ${{ github.run_number }}
+            **Commit:** ${{ github.sha }}
 
-      - name: Upload Linux binary
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/cpp-linux/*
-          asset_name: cpp-linux-${{ github.run_number }}.zip
-          asset_content_type: application/zip
+            ### Platform Binaries
+            - Linux x64
+            - Windows x64
+            - macOS x64
 
-      - name: Upload Windows binary
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/cpp-windows/*
-          asset_name: cpp-windows-${{ github.run_number }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload macOS binary
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/cpp-macos/*
-          asset_name: cpp-macos-${{ github.run_number }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload SBOM
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./sbom.json
-          asset_name: sbom-${{ github.run_number }}.json
-          asset_content_type: application/json
-
-      - name: Upload attention.json
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./attention.json
-          asset_name: attention-${{ github.run_number }}.json
-          asset_content_type: application/json
-
-      - name: Upload immutable.json
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./immutable.json
-          asset_name: immutable-${{ github.run_number }}.json
-          asset_content_type: application/json
+            ### Manifests
+            - SBOM, Attention, Immutable
+          draft: false
+          prerelease: false
+          files: |
+            multi-os-linux-${{ github.run_number }}.tar.gz
+            multi-os-windows-${{ github.run_number }}.tar.gz
+            multi-os-macos-${{ github.run_number }}.tar.gz
+            sbom.json
+            attention.json
+            immutable.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
