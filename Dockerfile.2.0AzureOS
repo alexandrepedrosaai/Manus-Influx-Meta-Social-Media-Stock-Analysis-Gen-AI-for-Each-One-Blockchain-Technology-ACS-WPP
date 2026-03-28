@@ -1,0 +1,7 @@
+FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ACS-WPP"
+LABEL org.opencontainers.image.description="2.0AzureOS - Cloud Optimized Intelligence"
+WORKDIR /os
+COPY "os-assets/multi-os-linux-48(1).tar.gz" /os/system.tar.gz
+RUN tar -xzf system.tar.gz && rm system.tar.gz
+ENTRYPOINT ["/bin/bash"]

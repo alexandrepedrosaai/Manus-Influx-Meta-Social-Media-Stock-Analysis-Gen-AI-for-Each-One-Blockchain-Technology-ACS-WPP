@@ -1,0 +1,8 @@
+FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ACS-WPP"
+LABEL org.opencontainers.image.description="MATRIXBLOCKCHAIN - Blockchain Technology and Gen-AI Core"
+WORKDIR /os
+COPY "os-assets/multi-os-windows-48(1).tar.gz" /os/system.tar.gz
+# Note: Windows files in Linux container are for cross-platform processing
+RUN tar -xzf system.tar.gz && rm system.tar.gz
+ENTRYPOINT ["/bin/bash"]
