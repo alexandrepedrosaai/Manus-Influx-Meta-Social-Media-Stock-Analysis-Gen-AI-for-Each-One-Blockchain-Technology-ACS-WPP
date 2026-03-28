@@ -1,0 +1,8 @@
+FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ACS-WPP"
+LABEL org.opencontainers.image.description="SmartContractBookdocs - Smart Contract Documentation and Books"
+WORKDIR /docs
+RUN apt-get update && apt-get install -y unzip && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY assets/mdbook-output.zip /docs/docs.zip
+RUN unzip docs.zip && rm docs.zip
+ENTRYPOINT ["/bin/bash"]

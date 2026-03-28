@@ -27,6 +27,14 @@ jobs:
             file: "Dockerfile.2.0AzureOS"
           - name: "matrixblockchain"
             file: "Dockerfile.MATRIXBLOCKCHAIN"
+          - name: "smartcontractbookdocs"
+            file: "Dockerfile.SmartContractBookdocs"
+          - name: "soliditycontracts"
+            file: "Dockerfile.soliditycontracts"
+          - name: "immutablecontracts"
+            file: "Dockerfile.immutablecontracts"
+          - name: "wppmicrosoftteamsacs"
+            file: "Dockerfile.WppMicrosoftTeamsACS"
 
     steps:
       - name: Checkout repository

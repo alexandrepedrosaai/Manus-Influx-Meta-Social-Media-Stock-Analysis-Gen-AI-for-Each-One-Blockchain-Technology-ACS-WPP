@@ -1,0 +1,6 @@
+FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/alexandrepedrosaai/Manus-Influx-Meta-Social-Media-Stock-Analysis-Gen-AI-for-Each-One-Blockchain-Technology-ACS-WPP"
+LABEL org.opencontainers.image.description="soliditycontracts - Solidity Smart Contracts Core"
+WORKDIR /contracts
+COPY assets/manifesto.pdf /contracts/manifesto.pdf
+ENTRYPOINT ["/bin/bash"]
